@@ -1,43 +1,57 @@
-
----
-
-### 🎙️ `dictate.py`
-```python
 #!/usr/bin/env python3
 import os
 import subprocess
+import threading
+import time
 from faster_whisper import WhisperModel
+from pystray import Icon
+from PIL import Image, ImageDraw
 
-# Config
-model_size = "tiny"
-record_file = "/tmp/dictation.wav"
+# --- Config ---
+MODEL_SIZE = "tiny"           # fastest for CPU
+AUDIO_FILE = "/tmp/dictation.wav"
 
-# Show notification when listening
-subprocess.run(["notify-send", "🎙️ Whisper Dictation", "Listening..."])
+# --- Mic Icon ---
+def create_mic_icon():
+    image = Image.new('RGB', (64, 64), color=(0,0,0,0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((16,16,48,48), fill='red')
+    return image
 
-# Record audio (10 seconds, change -t for longer/shorter)
-subprocess.call([
-    "ffmpeg", "-f", "pulse", "-i", "default",
-    "-t", "10", "-ac", "1", "-ar", "16000",
-    "-y", record_file
-])
+icon = Icon("mic", create_mic_icon())
 
-# Load model
-model = WhisperModel(model_size, device="cpu")
+def show_icon():
+    icon.run_detached()
 
-# Transcribe
-segments, _ = model.transcribe(record_file, beam_size=5)
-text = " ".join([seg.text for seg in segments])
+def hide_icon():
+    icon.stop()
 
-# Show transcription in terminal
-print("📝", text)
+# --- Record audio ---
+def record_audio(duration=10):
+    subprocess.call([
+        "ffmpeg", "-f", "pulse", "-i", "default", "-t", str(duration),
+        "-ac", "1", "-ar", "16000", AUDIO_FILE
+    ])
 
-# Copy to clipboard (Wayland or X11)
-if os.environ.get("WAYLAND_DISPLAY"):
-    subprocess.run(["wl-copy"], input=text.encode())
-else:
-    subprocess.run(["xclip", "-selection", "clipboard"], input=text.encode())
+# --- Transcribe ---
+def transcribe():
+    model = WhisperModel(MODEL_SIZE, device="cpu")
+    segments, _ = model.transcribe(AUDIO_FILE, beam_size=5)
+    text = " ".join([seg.text for seg in segments])
+    # Copy to clipboard
+    clip_cmd = "wl-copy" if os.environ.get("WAYLAND_DISPLAY") else "xclip -selection clipboard"
+    subprocess.run(clip_cmd, input=text.encode(), shell=True)
+    print("📝", text)
 
-# Show notification when done
-subprocess.run(["notify-send", "✅ Whisper Dictation", "Copied to clipboard!"])
+# --- Main ---
+def main():
+    print("🎙️ Listening for dictation...")
+    show_icon()
+    record_audio(duration=5)  # record 5 sec for fast response
+    hide_icon()
+    transcribe()
+    print("✅ Dictation finished. Text copied to clipboard.")
+
+if __name__ == "__main__":
+    main()
 
