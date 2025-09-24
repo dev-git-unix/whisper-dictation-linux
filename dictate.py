@@ -27,9 +27,15 @@ def hide_icon():
 # --- Record audio ---
 def record_audio(duration=5):
     subprocess.call([
-        "ffmpeg", "-f", "pulse", "-i", "default", "-t", str(duration),
-        "-ac", "1", "-ar", "16000", AUDIO_FILE
+        "ffmpeg", "-y",                # <-- overwrite without asking
+        "-f", "pulse",
+        "-i", "default",
+        "-t", str(duration),
+        "-ac", "1",
+        "-ar", "16000",
+        AUDIO_FILE
     ])
+
 
 # --- Transcribe ---
 def transcribe():
