@@ -2,13 +2,11 @@
 import os
 import subprocess
 import threading
-import time
 from faster_whisper import WhisperModel
 from pystray import Icon
 from PIL import Image, ImageDraw
 
-# --- Config ---
-MODEL_SIZE = "tiny"           # fastest for CPU
+MODEL_SIZE = "tiny"
 AUDIO_FILE = "/tmp/dictation.wav"
 
 # --- Mic Icon ---
@@ -21,13 +19,13 @@ def create_mic_icon():
 icon = Icon("mic", create_mic_icon())
 
 def show_icon():
-    icon.run_detached()
+    icon.run()
 
 def hide_icon():
     icon.stop()
 
 # --- Record audio ---
-def record_audio(duration=10):
+def record_audio(duration=5):
     subprocess.call([
         "ffmpeg", "-f", "pulse", "-i", "default", "-t", str(duration),
         "-ac", "1", "-ar", "16000", AUDIO_FILE
@@ -45,9 +43,12 @@ def transcribe():
 
 # --- Main ---
 def main():
+    # show mic icon in a separate thread
+    icon_thread = threading.Thread(target=show_icon, daemon=True)
+    icon_thread.start()
+
     print("🎙️ Listening for dictation...")
-    show_icon()
-    record_audio(duration=5)  # record 5 sec for fast response
+    record_audio()
     hide_icon()
     transcribe()
     print("✅ Dictation finished. Text copied to clipboard.")
